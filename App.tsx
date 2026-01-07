@@ -3,6 +3,7 @@ import { StudentData, TeacherRole } from './types';
 import StudentList from './components/StudentList';
 import { generateCommentsBatch, extractDataFromMedia } from './services/geminiService';
 import { parseExcelData } from './services/excelService';
+import ApiKeyModal from './components/ApiKeyModal';
 
 function App() {
   const [role, setRole] = useState<TeacherRole>(TeacherRole.SUBJECT);
@@ -14,7 +15,27 @@ function App() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showAbout, setShowAbout] = useState(false);
   
+  // Logic to handle missing API Key
+  const [isKeyMissing, setIsKeyMissing] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check for API Key on mount
+  useEffect(() => {
+    const envKey = process.env.API_KEY;
+    const localKey = localStorage.getItem('GEMINI_API_KEY');
+    // If both are missing/undefined, show the modal
+    if ((!envKey || envKey === 'undefined') && !localKey) {
+      setIsKeyMissing(true);
+    }
+  }, []);
+
+  const handleSaveApiKey = (key: string) => {
+    localStorage.setItem('GEMINI_API_KEY', key);
+    setIsKeyMissing(false);
+    // Reload to apply new key context if needed, though getAIClient checks dynamic
+    window.location.reload();
+  };
 
   // Helper to update specific student
   const updateStudent = (id: string, updates: Partial<StudentData>) => {
@@ -51,7 +72,11 @@ function App() {
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg("Lỗi: Hệ thống chưa có API Key hoặc Key bị lỗi. Vui lòng kiểm tra 'Environment Variables' trên Netlify.");
+      if (err.message === 'MISSING_KEY') {
+         setIsKeyMissing(true);
+      } else {
+         setErrorMsg("Lỗi kết nối AI. Vui lòng kiểm tra lại API Key hoặc thử lại sau.");
+      }
       setStudents(prev => prev.map(s => ({ ...s, isProcessing: false })));
     } finally {
       setIsGenerating(false);
@@ -106,8 +131,13 @@ function App() {
                 }
                 resolve();
               } catch (err: any) {
-                setErrorMsg(err.message || "Lỗi khi AI xử lý file. Có thể do chưa cấu hình API Key.");
-                resolve(); // Resolve to stop spinner, error shown
+                if (err.message === 'MISSING_KEY') {
+                    setIsKeyMissing(true);
+                    resolve();
+                } else {
+                    setErrorMsg(err.message || "Lỗi khi AI xử lý file.");
+                    resolve(); 
+                }
               }
             };
             reader.readAsDataURL(file);
@@ -169,9 +199,13 @@ function App() {
       } else {
         updateStudent(student.id, { isProcessing: false });
       }
-    } catch {
+    } catch (err: any) {
       updateStudent(student.id, { isProcessing: false });
-      setErrorMsg("Không thể tạo lại nhận xét.");
+      if (err.message === 'MISSING_KEY') {
+          setIsKeyMissing(true);
+      } else {
+          setErrorMsg("Không thể tạo lại nhận xét.");
+      }
     }
   };
 
@@ -184,6 +218,9 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-slate-50 relative">
+      {/* KEY MODAL */}
+      {isKeyMissing && <ApiKeyModal onSave={handleSaveApiKey} />}
+
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

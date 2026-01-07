@@ -2,11 +2,17 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { StudentData, TeacherRole } from "../types";
 
 // Helper to get AI instance safely. 
-// This prevents the app from crashing at startup if the API KEY is missing in the build.
+// Checks Environment variables first, then LocalStorage.
 const getAIClient = () => {
-  const apiKey = process.env.API_KEY;
+  let apiKey = process.env.API_KEY;
+  
+  // Fallback to localStorage if not found in env (for BYOK mode)
+  if (!apiKey || apiKey === 'undefined') {
+    apiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
+  }
+
   if (!apiKey) {
-    throw new Error("Chưa cấu hình API Key. Vui lòng kiểm tra cài đặt trên Netlify.");
+    throw new Error("MISSING_KEY"); // Special error code to trigger UI modal
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -133,6 +139,7 @@ export const extractDataFromMedia = async (
     };
 
   } catch (error: any) {
+    if (error.message === 'MISSING_KEY') throw error;
     console.error("Error extracting data from media:", error);
     throw new Error(error.message || "Không thể xử lý file. Hãy đảm bảo ảnh/PDF rõ nét và chứa bảng điểm.");
   }
@@ -282,7 +289,8 @@ export const generateCommentsBatch = async (
 
     return commentMap;
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'MISSING_KEY') throw error;
     console.error("Error generating comments:", error);
     throw error;
   }
