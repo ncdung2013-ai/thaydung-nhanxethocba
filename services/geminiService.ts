@@ -3,7 +3,7 @@ import { StudentData, TeacherRole } from "../types";
 
 // --- CẤU HÌNH API KEY TẠI ĐÂY ---
 // Bạn hãy thay thế dòng chữ bên dưới bằng API Key thật của bạn (bắt đầu bằng AIza...)
-const HARDCODED_API_KEY = "PASTE_YOUR_API_KEY_HERE"; 
+const HARDCODED_API_KEY = "AIzaSyDWKDBSd6jafOtfvTsDOcZNk8iXnaqbu5Y"; 
 
 // Helper to get AI instance safely. 
 const getAIClient = () => {
@@ -17,7 +17,7 @@ const getAIClient = () => {
   
   // Nếu vẫn không có key (cả cứng và mềm đều thiếu), dùng key rỗng để tránh lỗi crash ngay lập tức, 
   // nhưng khi gọi lệnh sẽ báo lỗi.
-  if (!apiKey || apiKey === "PASTE_YOUR_API_KEY_HERE") {
+  if (!apiKey || apiKey === "AIzaSyDWKDBSd6jafOtfvTsDOcZNk8iXnaqbu5Y") {
     console.warn("Chưa nhập API Key trong file services/geminiService.ts");
   }
 
