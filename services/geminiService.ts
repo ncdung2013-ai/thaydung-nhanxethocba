@@ -1,19 +1,26 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { StudentData, TeacherRole } from "../types";
 
+// --- CẤU HÌNH API KEY TẠI ĐÂY ---
+// Bạn hãy thay thế dòng chữ bên dưới bằng API Key thật của bạn (bắt đầu bằng AIza...)
+const HARDCODED_API_KEY = "PASTE_YOUR_API_KEY_HERE"; 
+
 // Helper to get AI instance safely. 
-// Checks Environment variables first, then LocalStorage.
 const getAIClient = () => {
-  let apiKey = process.env.API_KEY;
+  // Ưu tiên lấy Key cứng bạn đã nhập
+  let apiKey = HARDCODED_API_KEY;
+
+  // Nếu bạn quên nhập key cứng, nó sẽ thử tìm trong biến môi trường (dự phòng)
+  if (apiKey === "AIzaSyDWKDBSd6jafOtfvTsDOcZNk8iXnaqbu5YE" || !apiKey) {
+      apiKey = process.env.API_KEY || "";
+  }
   
-  // Fallback to localStorage if not found in env (for BYOK mode)
-  if (!apiKey || apiKey === 'undefined') {
-    apiKey = localStorage.getItem('GEMINI_API_KEY') || undefined;
+  // Nếu vẫn không có key (cả cứng và mềm đều thiếu), dùng key rỗng để tránh lỗi crash ngay lập tức, 
+  // nhưng khi gọi lệnh sẽ báo lỗi.
+  if (!apiKey || apiKey === "PASTE_YOUR_API_KEY_HERE") {
+    console.warn("Chưa nhập API Key trong file services/geminiService.ts");
   }
 
-  if (!apiKey) {
-    throw new Error("MISSING_KEY"); // Special error code to trigger UI modal
-  }
   return new GoogleGenAI({ apiKey });
 };
 
@@ -51,7 +58,7 @@ export const extractDataFromMedia = async (
   role: TeacherRole
 ): Promise<{ students: StudentData[], detectedSubject?: string }> => {
   
-  const ai = getAIClient(); // Init here to catch errors gracefully
+  const ai = getAIClient(); 
 
   const prompt = role === TeacherRole.SUBJECT 
     ? `Bạn là trợ lý nhập liệu. Hãy phân tích hình ảnh/PDF bảng điểm này:
@@ -139,7 +146,6 @@ export const extractDataFromMedia = async (
     };
 
   } catch (error: any) {
-    if (error.message === 'MISSING_KEY') throw error;
     console.error("Error extracting data from media:", error);
     throw new Error(error.message || "Không thể xử lý file. Hãy đảm bảo ảnh/PDF rõ nét và chứa bảng điểm.");
   }
@@ -290,7 +296,6 @@ export const generateCommentsBatch = async (
     return commentMap;
 
   } catch (error: any) {
-    if (error.message === 'MISSING_KEY') throw error;
     console.error("Error generating comments:", error);
     throw error;
   }
