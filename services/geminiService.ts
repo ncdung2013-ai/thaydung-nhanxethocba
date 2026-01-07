@@ -1,10 +1,16 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { StudentData, TeacherRole } from "../types";
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to get AI instance safely. 
+// This prevents the app from crashing at startup if the API KEY is missing in the build.
+const getAIClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("Chưa cấu hình API Key. Vui lòng kiểm tra cài đặt trên Netlify.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
-// Use Gemini 3 Flash for better reasoning and JSON extraction
 const MODEL_NAME = "gemini-3-flash-preview";
 
 /**
@@ -39,6 +45,8 @@ export const extractDataFromMedia = async (
   role: TeacherRole
 ): Promise<{ students: StudentData[], detectedSubject?: string }> => {
   
+  const ai = getAIClient(); // Init here to catch errors gracefully
+
   const prompt = role === TeacherRole.SUBJECT 
     ? `Bạn là trợ lý nhập liệu. Hãy phân tích hình ảnh/PDF bảng điểm này:
        1. TÌM TÊN MÔN HỌC: Đọc kỹ tiêu đề bảng (ví dụ: "MÔN TIẾNG ANH", "Hóa học", "Toán"...).
@@ -165,6 +173,9 @@ export const generateCommentsBatch = async (
 ): Promise<Map<string, string>> => {
   
   if (students.length === 0) return new Map();
+
+  // Lazy init to ensure key availability
+  const ai = getAIClient();
 
   let logicRules = "";
   let roleInstruction = "";
