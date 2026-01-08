@@ -24,7 +24,9 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-const MODEL_NAME = "gemini-3-flash-preview";
+// Đổi sang model 2.0 Flash Exp để có hạn ngạch (Quota) miễn phí cao hơn nhiều so với bản 3-preview
+// Bản 3-preview giới hạn chỉ khoảng 20 req/ngày, trong khi bản này khoảng 1500 req/ngày.
+const MODEL_NAME = "gemini-2.0-flash-exp";
 
 /**
  * Helper to normalize subject name from AI output to App's convention
@@ -109,7 +111,7 @@ export const extractDataFromMedia = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        thinkingConfig: { thinkingBudget: 0 }
+        // thinkingConfig: { thinkingBudget: 0 } // gemini-2.0-flash-exp might not need/support thinking budget explicit disable, safe to remove or keep if supported. removing to be safe for 2.0
       }
     });
 
@@ -270,7 +272,7 @@ export const generateCommentsBatch = async (
         systemInstruction: systemInstruction,
         responseMimeType: "application/json",
         responseSchema: outputSchema,
-        thinkingConfig: { thinkingBudget: 0 }
+        // thinkingConfig: { thinkingBudget: 0 } // removing for 2.0 compatibility
       },
     });
 

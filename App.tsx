@@ -51,7 +51,15 @@ function App() {
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg("Lỗi kết nối AI. Vui lòng kiểm tra lại API Key trong file code.");
+      
+      // Handle Quota/Rate Limit Errors specific to 429
+      const msg = err.message || "";
+      if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
+         setErrorMsg("⚠️ Hết lượt sử dụng trong thời gian ngắn (Quota). Vui lòng đợi 1-2 phút rồi thử lại. Do nhiều người dùng chung 1 Key.");
+      } else {
+         setErrorMsg("Lỗi kết nối AI. Vui lòng kiểm tra lại API Key hoặc đường truyền.");
+      }
+      
       setStudents(prev => prev.map(s => ({ ...s, isProcessing: false })));
     } finally {
       setIsGenerating(false);
@@ -106,7 +114,12 @@ function App() {
                 }
                 resolve();
               } catch (err: any) {
-                setErrorMsg(err.message || "Lỗi khi AI xử lý file.");
+                const msg = err.message || "";
+                if (msg.includes("429") || msg.includes("quota")) {
+                   setErrorMsg("⚠️ Hết lượt sử dụng trong thời gian ngắn (Quota). Vui lòng đợi 1-2 phút.");
+                } else {
+                   setErrorMsg(err.message || "Lỗi khi AI xử lý file.");
+                }
                 resolve(); 
               }
             };
@@ -171,7 +184,12 @@ function App() {
       }
     } catch (err: any) {
       updateStudent(student.id, { isProcessing: false });
-      setErrorMsg("Không thể tạo lại nhận xét.");
+      const msg = err.message || "";
+      if (msg.includes("429") || msg.includes("quota")) {
+         setErrorMsg("⚠️ Hết lượt sử dụng. Vui lòng đợi một lát.");
+      } else {
+         setErrorMsg("Không thể tạo lại nhận xét.");
+      }
     }
   };
 
