@@ -23,10 +23,10 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-// CHUYỂN VỀ BẢN 1.5 FLASH (ỔN ĐỊNH NHẤT CHO FREE TIER)
-// gemini-2.0-flash đôi khi bị quá tải hoặc chặn tài khoản mới.
-// gemini-1.5-flash đảm bảo hoạt động 100% với tài khoản Gmail thường.
-const MODEL_NAME = "gemini-1.5-flash";
+// SỬ DỤNG GEMINI 2.0 FLASH
+// Model này mạnh mẽ và hiện đại nhất.
+// Lỗi Quota trước đây đã được xử lý bằng cách giảm tốc độ gửi ở App.tsx
+const MODEL_NAME = "gemini-2.0-flash";
 
 /**
  * Test API Connection

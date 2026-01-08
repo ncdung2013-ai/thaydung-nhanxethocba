@@ -30,16 +30,29 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, onClear, hasKey = fal
       } catch (err: any) {
           console.error(err);
           setStatus('error');
-          const msg = err.message || "";
           
-          if (msg.includes('429')) {
+          let msg = err.message || JSON.stringify(err);
+          
+          // Clean up JSON error if present
+          if (msg.includes('"{')) {
+              try {
+                  const parsed = JSON.parse(msg.substring(msg.indexOf('{')));
+                  if (parsed.error && parsed.error.message) {
+                      msg = parsed.error.message;
+                  }
+              } catch (e) {}
+          }
+
+          if (msg.includes('404') || msg.includes('not found')) {
+             setStatusMsg("Model AI không tìm thấy (404). Có thể Key chưa kích hoạt đầy đủ.");
+          } else if (msg.includes('429')) {
              setStatusMsg("Server đang bận (429). Hãy thử lại sau 1 phút.");
           } else if (msg.includes('400') || msg.includes('INVALID_ARGUMENT') || msg.includes('API_KEY_INVALID')) {
              setStatusMsg("Key không hợp lệ. Vui lòng kiểm tra lại từng ký tự.");
           } else if (msg.includes('403')) {
              setStatusMsg("Key chưa được kích hoạt hoặc sai khu vực. Hãy tạo Key mới.");
           } else {
-             setStatusMsg(`Lỗi kết nối: ${msg.slice(0, 50)}...`);
+             setStatusMsg(`Lỗi kết nối: ${msg.slice(0, 60)}...`);
           }
       } finally {
           setIsChecking(false);
