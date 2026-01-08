@@ -13,6 +13,7 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string>(""); // New status for granular updates
   const [showAbout, setShowAbout] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
   
@@ -32,6 +33,11 @@ function App() {
     setErrorMsg(null);
   };
 
+  const handleClearKey = () => {
+    localStorage.removeItem('GEMINI_API_KEY');
+    setShowKeyModal(true);
+  }
+
   // Helper to update specific student
   const updateStudent = (id: string, updates: Partial<StudentData>) => {
     setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
@@ -45,27 +51,45 @@ function App() {
     
     setIsGenerating(true);
     setErrorMsg(null);
+    setStatusMsg("Đang chuẩn bị gửi dữ liệu...");
+    
     // Mark all as processing first
     setStudents(prev => prev.map(s => ({ ...s, isProcessing: true })));
 
     try {
-      const chunkSize = 30;
-      // Use targetStudents for iteration source, but update state
+      // QUAN TRỌNG: Google Free Tier giới hạn 15 requests/phút.
+      // Tức là tối thiểu 4 giây mới được gửi 1 lần (60s / 15 = 4s).
+      // Để an toàn, ta chia nhỏ chunk và delay 4.2 giây.
+      const chunkSize = 5; 
+      
       for (let i = 0; i < targetStudents.length; i += chunkSize) {
         const chunk = targetStudents.slice(i, i + chunkSize);
+        
+        // Cập nhật trạng thái cho người dùng đỡ sốt ruột
+        const progress = Math.min(100, Math.round(((i) / targetStudents.length) * 100));
+        setStatusMsg(`Đang xử lý nhóm học sinh ${i + 1} - ${Math.min(i + chunkSize, targetStudents.length)} (${progress}%)...`);
+
+        // Gọi AI
         const commentsMap = await generateCommentsBatch(chunk, role, currentSubject);
         
+        // Cập nhật State ngay sau khi có kết quả
         setStudents(prev => prev.map(s => {
           if (commentsMap.has(s.id)) {
             return { ...s, comment: commentsMap.get(s.id)!, isProcessing: false };
           }
-          // If in this chunk but no comment returned (rare error), stop processing
           if (chunk.find(c => c.id === s.id)) {
              return { ...s, isProcessing: false };
           }
           return s;
         }));
+
+        // DELAY 4.2 GIÂY ĐỂ TRÁNH LỖI 429 (Rate Limit của Google)
+        if (i + chunkSize < targetStudents.length) {
+            setStatusMsg(`⏳ Đang đợi Google (4s) để tránh quá tải...`);
+            await new Promise(resolve => setTimeout(resolve, 4200));
+        }
       }
+      setStatusMsg("");
     } catch (err: any) {
       console.error(err);
       if (err.message === "MISSING_API_KEY") {
@@ -74,12 +98,13 @@ function App() {
       } else {
          const msg = err.message || "";
          if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
-            setErrorMsg("⚠️ Hết lượt sử dụng (Quota). Vui lòng đợi 1-2 phút.");
+            setErrorMsg("⚠️ Google báo hết lượt (Rate Limit). Đừng lo, hãy đợi 1 phút rồi thử lại.");
          } else {
-            setErrorMsg("Lỗi kết nối AI. Vui lòng kiểm tra lại API Key hoặc đường truyền.");
+            setErrorMsg("Lỗi kết nối đến Google AI. Kiểm tra mạng hoặc API Key.");
          }
       }
       setStudents(prev => prev.map(s => ({ ...s, isProcessing: false })));
+      setStatusMsg("");
     } finally {
       setIsGenerating(false);
     }
@@ -138,7 +163,7 @@ function App() {
                 } else {
                     const msg = err.message || "";
                     if (msg.includes("429") || msg.includes("quota")) {
-                       setErrorMsg("⚠️ Hết lượt sử dụng (Quota). Vui lòng đợi 1-2 phút.");
+                       setErrorMsg("⚠️ Google đang bận. Vui lòng thử lại sau 1 phút.");
                     } else {
                        setErrorMsg(err.message || "Lỗi khi AI xử lý file.");
                     }
@@ -284,6 +309,17 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
         
+        {/* Status Bar - Only show when generating */}
+        {isGenerating && statusMsg && (
+          <div className="bg-blue-50 border border-blue-100 text-blue-700 px-4 py-3 rounded-lg flex items-center justify-between shadow-sm animate-fade-in">
+             <div className="flex items-center gap-3">
+               <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+               <span className="font-medium">{statusMsg}</span>
+             </div>
+             <span className="text-xs bg-white px-2 py-1 rounded text-blue-500 border border-blue-100 font-bold">Safe Mode</span>
+          </div>
+        )}
+
         {/* Input Section */}
         {students.length === 0 && (
           <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 transition-all">
@@ -377,7 +413,7 @@ function App() {
       </footer>
 
       {/* Key Modal */}
-      {showKeyModal && <ApiKeyModal onSave={handleSaveKey} />}
+      {showKeyModal && <ApiKeyModal onSave={handleSaveKey} onClear={handleClearKey} hasKey={!!localStorage.getItem('GEMINI_API_KEY')} />}
 
       {/* About Modal */}
       {showAbout && (
