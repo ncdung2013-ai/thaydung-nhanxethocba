@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { testApiConnection } from '../services/geminiService';
 
 interface ApiKeyModalProps {
   onSave: (key: string) => void;
@@ -6,7 +7,39 @@ interface ApiKeyModalProps {
 
 const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave }) => {
   const [inputKey, setInputKey] = useState("");
+  const [isChecking, setIsChecking] = useState(false);
+  const [status, setStatus] = useState<'none' | 'success' | 'error'>('none');
+  const [statusMsg, setStatusMsg] = useState("");
   
+  const handleCheckAndSave = async () => {
+      const cleanKey = inputKey.trim();
+      if (!cleanKey) return;
+      
+      setIsChecking(true);
+      setStatus('none');
+      
+      try {
+          await testApiConnection(cleanKey);
+          setStatus('success');
+          // Delay a bit to show success message then save
+          setTimeout(() => {
+              onSave(cleanKey);
+          }, 1000);
+      } catch (err: any) {
+          console.error(err);
+          setStatus('error');
+          if (err.message?.includes('429')) {
+             setStatusMsg("Key này đang bị hết lượt (Quota). Hãy thử tài khoản khác.");
+          } else if (err.message?.includes('400') || err.message?.includes('INVALID_ARGUMENT')) {
+             setStatusMsg("Key không hợp lệ. Vui lòng kiểm tra lại.");
+          } else {
+             setStatusMsg("Không thể kết nối. Kiểm tra mạng hoặc Key.");
+          }
+      } finally {
+          setIsChecking(false);
+      }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 sm:p-8 relative">
@@ -21,7 +54,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave }) => {
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm text-slate-700 space-y-2">
             <h3 className="font-bold text-slate-800 mb-2">Cách lấy Key miễn phí (1 phút):</h3>
             <p>1. Nhấn vào đường link bên dưới và đăng nhập Gmail.</p>
-            <p>2. Nhấn nút màu xanh <span className="font-bold text-blue-600">"Create API key"</span>.</p>
+            <p>2. Nhấn nút màu xanh <span className="font-bold text-blue-600">"Get API key"</span>.</p>
             <p>3. Chọn <span className="font-bold">"Create API key in new project"</span>.</p>
             <p>4. Copy đoạn mã bắt đầu bằng chữ <code className="bg-slate-200 px-1 rounded text-red-600 font-mono">AIza...</code> và dán vào ô bên dưới.</p>
             
@@ -43,19 +76,33 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave }) => {
             <input 
               type="password" 
               value={inputKey}
-              onChange={(e) => setInputKey(e.target.value)}
+              onChange={(e) => { setInputKey(e.target.value); setStatus('none'); }}
               placeholder="AIzaSy..."
               className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-mono text-sm"
             />
+            {status === 'error' && <p className="text-red-600 text-xs mt-1 font-medium">{statusMsg}</p>}
+            {status === 'success' && <p className="text-green-600 text-xs mt-1 font-bold">✅ Key hợp lệ! Đang lưu...</p>}
           </div>
           
           <button 
-            onClick={() => inputKey && onSave(inputKey)}
-            disabled={!inputKey}
-            className="w-full py-3 bg-primary hover:bg-blue-700 text-white font-bold rounded-lg transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            onClick={handleCheckAndSave}
+            disabled={!inputKey || isChecking}
+            className={`w-full py-3 text-white font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2
+              ${status === 'success' ? 'bg-green-600' : 'bg-primary hover:bg-blue-700'}
+              ${(!inputKey || isChecking) ? 'opacity-70 cursor-not-allowed' : ''}
+            `}
           >
-            <span>Lưu & Bắt đầu sử dụng</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+            {isChecking ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  <span>Đang kiểm tra Key...</span>
+                </>
+            ) : (
+                <>
+                  <span>{status === 'success' ? 'Thành công!' : 'Kiểm tra & Bắt đầu'}</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </>
+            )}
           </button>
         </div>
       </div>

@@ -2,9 +2,6 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { StudentData, TeacherRole } from "../types";
 
 // --- CẤU HÌNH API KEY ---
-// KHÔNG DÙNG KEY CỨNG NỮA ĐỂ TRÁNH LỖI QUOTA KHI NHIỀU NGƯỜI DÙNG
-// Key sẽ được lấy từ LocalStorage của trình duyệt người dùng.
-
 const getStoredKey = () => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('GEMINI_API_KEY') || "";
@@ -12,12 +9,10 @@ const getStoredKey = () => {
   return "";
 };
 
-// Helper to get AI instance safely. 
 const getAIClient = () => {
   let apiKey = getStoredKey();
 
   if (!apiKey) {
-    // Thử lấy từ biến môi trường nếu có (lúc dev)
     apiKey = process.env.API_KEY || "";
   }
   
@@ -28,8 +23,27 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-// Sử dụng model 2.0 Flash Exp để có tốc độ nhanh và quota tốt hơn
-const MODEL_NAME = "gemini-2.0-flash-exp";
+// CHUYỂN SANG BẢN ỔN ĐỊNH (STABLE) ĐỂ KHẮC PHỤC LỖI QUOTA CỦA BẢN EXP
+// gemini-2.0-flash là bản mới nhất, nhanh và hạn ngạch cao.
+const MODEL_NAME = "gemini-2.0-flash";
+
+/**
+ * Test API Connection
+ */
+export const testApiConnection = async (apiKey: string): Promise<boolean> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    // Gọi một lệnh siêu nhẹ để test mạng và key
+    await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: "Hello",
+    });
+    return true;
+  } catch (e) {
+    console.error("Test connection failed:", e);
+    throw e;
+  }
+};
 
 /**
  * Helper to normalize subject name from AI output to App's convention
