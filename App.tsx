@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StudentData, TeacherRole } from './types';
 import StudentList from './components/StudentList';
+import ApiKeyModal from './components/ApiKeyModal';
 import { generateCommentsBatch, extractDataFromMedia } from './services/geminiService';
 import { parseExcelData } from './services/excelService';
 
@@ -13,8 +14,23 @@ function App() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showAbout, setShowAbout] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Check key on init, if missing show modal
+    const key = localStorage.getItem('GEMINI_API_KEY');
+    if (!key) {
+        setShowKeyModal(true);
+    }
+  }, []);
+
+  const handleSaveKey = (key: string) => {
+    localStorage.setItem('GEMINI_API_KEY', key);
+    setShowKeyModal(false);
+    setErrorMsg(null);
+  };
 
   // Helper to update specific student
   const updateStudent = (id: string, updates: Partial<StudentData>) => {
@@ -28,6 +44,7 @@ function App() {
     if (targetStudents.length === 0) return;
     
     setIsGenerating(true);
+    setErrorMsg(null);
     // Mark all as processing first
     setStudents(prev => prev.map(s => ({ ...s, isProcessing: true })));
 
@@ -51,15 +68,17 @@ function App() {
       }
     } catch (err: any) {
       console.error(err);
-      
-      // Handle Quota/Rate Limit Errors specific to 429
-      const msg = err.message || "";
-      if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
-         setErrorMsg("⚠️ Hết lượt sử dụng trong thời gian ngắn (Quota). Vui lòng đợi 1-2 phút rồi thử lại. Do nhiều người dùng chung 1 Key.");
+      if (err.message === "MISSING_API_KEY") {
+         setShowKeyModal(true);
+         setErrorMsg("Vui lòng nhập API Key để tiếp tục.");
       } else {
-         setErrorMsg("Lỗi kết nối AI. Vui lòng kiểm tra lại API Key hoặc đường truyền.");
+         const msg = err.message || "";
+         if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
+            setErrorMsg("⚠️ Hết lượt sử dụng (Quota). Vui lòng đợi 1-2 phút.");
+         } else {
+            setErrorMsg("Lỗi kết nối AI. Vui lòng kiểm tra lại API Key hoặc đường truyền.");
+         }
       }
-      
       setStudents(prev => prev.map(s => ({ ...s, isProcessing: false })));
     } finally {
       setIsGenerating(false);
@@ -114,11 +133,15 @@ function App() {
                 }
                 resolve();
               } catch (err: any) {
-                const msg = err.message || "";
-                if (msg.includes("429") || msg.includes("quota")) {
-                   setErrorMsg("⚠️ Hết lượt sử dụng trong thời gian ngắn (Quota). Vui lòng đợi 1-2 phút.");
+                if (err.message === "MISSING_API_KEY") {
+                    setShowKeyModal(true);
                 } else {
-                   setErrorMsg(err.message || "Lỗi khi AI xử lý file.");
+                    const msg = err.message || "";
+                    if (msg.includes("429") || msg.includes("quota")) {
+                       setErrorMsg("⚠️ Hết lượt sử dụng (Quota). Vui lòng đợi 1-2 phút.");
+                    } else {
+                       setErrorMsg(err.message || "Lỗi khi AI xử lý file.");
+                    }
                 }
                 resolve(); 
               }
@@ -159,6 +182,7 @@ function App() {
   // Handle Global Paste (Ctrl+V)
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
+      if (showKeyModal) return; // Disable paste if modal open
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) {
         return; 
       }
@@ -170,7 +194,7 @@ function App() {
     };
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [role, subjectName]); 
+  }, [role, subjectName, showKeyModal]); 
 
   // Single Regenerate
   const handleRegenerateSingle = async (student: StudentData) => {
@@ -184,11 +208,15 @@ function App() {
       }
     } catch (err: any) {
       updateStudent(student.id, { isProcessing: false });
-      const msg = err.message || "";
-      if (msg.includes("429") || msg.includes("quota")) {
-         setErrorMsg("⚠️ Hết lượt sử dụng. Vui lòng đợi một lát.");
+      if (err.message === "MISSING_API_KEY") {
+          setShowKeyModal(true);
       } else {
-         setErrorMsg("Không thể tạo lại nhận xét.");
+          const msg = err.message || "";
+          if (msg.includes("429") || msg.includes("quota")) {
+             setErrorMsg("⚠️ Hết lượt sử dụng. Vui lòng đợi một lát.");
+          } else {
+             setErrorMsg("Không thể tạo lại nhận xét.");
+          }
       }
     }
   };
@@ -230,14 +258,25 @@ function App() {
               </button>
             </div>
             
-            {/* About Button */}
-            <button 
-              onClick={() => setShowAbout(true)}
-              className="text-slate-400 hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100"
-              title="Thông tin ứng dụng"
-            >
-               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </button>
+            <div className="flex items-center border-l border-slate-300 pl-3 gap-1">
+                {/* Settings Key Button */}
+                <button
+                  onClick={() => setShowKeyModal(true)}
+                  className="text-slate-400 hover:text-yellow-600 transition-colors p-2 rounded-full hover:bg-slate-100"
+                  title="Cài đặt API Key"
+                >
+                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                </button>
+
+                {/* About Button */}
+                <button 
+                  onClick={() => setShowAbout(true)}
+                  className="text-slate-400 hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100"
+                  title="Thông tin ứng dụng"
+                >
+                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </button>
+            </div>
           </div>
         </div>
       </header>
@@ -336,6 +375,9 @@ function App() {
           </p>
         </div>
       </footer>
+
+      {/* Key Modal */}
+      {showKeyModal && <ApiKeyModal onSave={handleSaveKey} />}
 
       {/* About Modal */}
       {showAbout && (

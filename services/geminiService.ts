@@ -1,31 +1,34 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { StudentData, TeacherRole } from "../types";
 
-// --- CẤU HÌNH API KEY TẠI ĐÂY ---
-// Bạn hãy thay thế dòng chữ bên dưới bằng API Key thật của bạn (bắt đầu bằng AIza...)
-const HARDCODED_API_KEY = "AIzaSyDWKDBSd6jafOtfvTsDOcZNk8iXnaqbu5Y"; 
+// --- CẤU HÌNH API KEY ---
+// KHÔNG DÙNG KEY CỨNG NỮA ĐỂ TRÁNH LỖI QUOTA KHI NHIỀU NGƯỜI DÙNG
+// Key sẽ được lấy từ LocalStorage của trình duyệt người dùng.
+
+const getStoredKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('GEMINI_API_KEY') || "";
+  }
+  return "";
+};
 
 // Helper to get AI instance safely. 
 const getAIClient = () => {
-  // Ưu tiên lấy Key cứng bạn đã nhập
-  let apiKey = HARDCODED_API_KEY;
+  let apiKey = getStoredKey();
 
-  // Nếu bạn quên nhập key cứng, nó sẽ thử tìm trong biến môi trường (dự phòng)
-  if (apiKey === "AIzaSyDWKDBSd6jafOtfvTsDOcZNk8iXnaqbu5YE" || !apiKey) {
-      apiKey = process.env.API_KEY || "";
+  if (!apiKey) {
+    // Thử lấy từ biến môi trường nếu có (lúc dev)
+    apiKey = process.env.API_KEY || "";
   }
   
-  // Nếu vẫn không có key (cả cứng và mềm đều thiếu), dùng key rỗng để tránh lỗi crash ngay lập tức, 
-  // nhưng khi gọi lệnh sẽ báo lỗi.
-  if (!apiKey || apiKey === "AIzaSyDWKDBSd6jafOtfvTsDOcZNk8iXnaqbu5Y") {
-    console.warn("Chưa nhập API Key trong file services/geminiService.ts");
+  if (!apiKey) {
+    throw new Error("MISSING_API_KEY");
   }
 
   return new GoogleGenAI({ apiKey });
 };
 
-// Đổi sang model 2.0 Flash Exp để có hạn ngạch (Quota) miễn phí cao hơn nhiều so với bản 3-preview
-// Bản 3-preview giới hạn chỉ khoảng 20 req/ngày, trong khi bản này khoảng 1500 req/ngày.
+// Sử dụng model 2.0 Flash Exp để có tốc độ nhanh và quota tốt hơn
 const MODEL_NAME = "gemini-2.0-flash-exp";
 
 /**
@@ -111,7 +114,6 @@ export const extractDataFromMedia = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        // thinkingConfig: { thinkingBudget: 0 } // gemini-2.0-flash-exp might not need/support thinking budget explicit disable, safe to remove or keep if supported. removing to be safe for 2.0
       }
     });
 
@@ -148,6 +150,7 @@ export const extractDataFromMedia = async (
     };
 
   } catch (error: any) {
+    if (error.message === "MISSING_API_KEY") throw error;
     console.error("Error extracting data from media:", error);
     throw new Error(error.message || "Không thể xử lý file. Hãy đảm bảo ảnh/PDF rõ nét và chứa bảng điểm.");
   }
@@ -189,7 +192,6 @@ export const generateCommentsBatch = async (
   
   if (students.length === 0) return new Map();
 
-  // Lazy init to ensure key availability
   const ai = getAIClient();
 
   let logicRules = "";
@@ -272,7 +274,6 @@ export const generateCommentsBatch = async (
         systemInstruction: systemInstruction,
         responseMimeType: "application/json",
         responseSchema: outputSchema,
-        // thinkingConfig: { thinkingBudget: 0 } // removing for 2.0 compatibility
       },
     });
 
@@ -298,6 +299,7 @@ export const generateCommentsBatch = async (
     return commentMap;
 
   } catch (error: any) {
+    if (error.message === "MISSING_API_KEY") throw error;
     console.error("Error generating comments:", error);
     throw error;
   }
