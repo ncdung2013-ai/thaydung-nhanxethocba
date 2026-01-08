@@ -30,12 +30,16 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, onClear, hasKey = fal
       } catch (err: any) {
           console.error(err);
           setStatus('error');
-          if (err.message?.includes('429')) {
-             setStatusMsg("Key này đang bị hết lượt (Quota). Hãy thử tài khoản khác.");
-          } else if (err.message?.includes('400') || err.message?.includes('INVALID_ARGUMENT')) {
-             setStatusMsg("Key không hợp lệ. Vui lòng kiểm tra lại.");
+          const msg = err.message || "";
+          
+          if (msg.includes('429')) {
+             setStatusMsg("Server đang bận (429). Hãy thử lại sau 1 phút.");
+          } else if (msg.includes('400') || msg.includes('INVALID_ARGUMENT') || msg.includes('API_KEY_INVALID')) {
+             setStatusMsg("Key không hợp lệ. Vui lòng kiểm tra lại từng ký tự.");
+          } else if (msg.includes('403')) {
+             setStatusMsg("Key chưa được kích hoạt hoặc sai khu vực. Hãy tạo Key mới.");
           } else {
-             setStatusMsg("Không thể kết nối. Kiểm tra mạng hoặc Key.");
+             setStatusMsg(`Lỗi kết nối: ${msg.slice(0, 50)}...`);
           }
       } finally {
           setIsChecking(false);

@@ -23,9 +23,10 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-// CHUYỂN SANG BẢN ỔN ĐỊNH (STABLE) ĐỂ KHẮC PHỤC LỖI QUOTA CỦA BẢN EXP
-// gemini-2.0-flash là bản mới nhất, nhanh và hạn ngạch cao.
-const MODEL_NAME = "gemini-2.0-flash";
+// CHUYỂN VỀ BẢN 1.5 FLASH (ỔN ĐỊNH NHẤT CHO FREE TIER)
+// gemini-2.0-flash đôi khi bị quá tải hoặc chặn tài khoản mới.
+// gemini-1.5-flash đảm bảo hoạt động 100% với tài khoản Gmail thường.
+const MODEL_NAME = "gemini-1.5-flash";
 
 /**
  * Test API Connection
