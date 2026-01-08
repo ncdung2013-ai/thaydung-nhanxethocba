@@ -13,9 +13,10 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [statusMsg, setStatusMsg] = useState<string>(""); // New status for granular updates
+  const [statusMsg, setStatusMsg] = useState<string>(""); 
   const [showAbout, setShowAbout] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
+  const [isDragging, setIsDragging] = useState(false); // UI State for Drag & Drop
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -204,6 +205,23 @@ function App() {
     e.target.value = '';
   };
 
+  // Handle Drag & Drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processFile(e.dataTransfer.files[0]);
+    }
+  };
+
   // Handle Global Paste (Ctrl+V)
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -254,40 +272,42 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-slate-50 relative">
+    <div className="min-h-screen flex flex-col font-sans bg-slate-50 relative selection:bg-blue-100">
 
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-sm transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center font-bold text-lg shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-lg flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-500/20">
               AI
             </div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden sm:block">Trợ lý Nhận xét Học bạ</h1>
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 tracking-tight hidden sm:block">
+              Trợ lý Nhận xét Học bạ
+            </h1>
             <h1 className="text-xl font-bold text-slate-800 tracking-tight sm:hidden">Trợ lý Học bạ</h1>
           </div>
           
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-300 shadow-inner">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
               <button
                 onClick={() => { setRole(TeacherRole.SUBJECT); setStudents([]); }}
-                className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-bold transition-all duration-200 ${role === TeacherRole.SUBJECT ? 'bg-white text-blue-700 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 ${role === TeacherRole.SUBJECT ? 'bg-white text-blue-700 shadow-sm ring-1 ring-black/5 scale-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 scale-95'}`}
               >
                 GV Bộ môn
               </button>
               <button
                 onClick={() => { setRole(TeacherRole.HOMEROOM); setStudents([]); }}
-                className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-bold transition-all duration-200 ${role === TeacherRole.HOMEROOM ? 'bg-white text-blue-700 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'}`}
+                className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 ${role === TeacherRole.HOMEROOM ? 'bg-white text-blue-700 shadow-sm ring-1 ring-black/5 scale-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 scale-95'}`}
               >
                 GV Chủ nhiệm
               </button>
             </div>
             
-            <div className="flex items-center border-l border-slate-300 pl-3 gap-1">
+            <div className="flex items-center border-l border-slate-300 pl-4 gap-2">
                 {/* Settings Key Button */}
                 <button
                   onClick={() => setShowKeyModal(true)}
-                  className="text-slate-400 hover:text-yellow-600 transition-colors p-2 rounded-full hover:bg-slate-100"
+                  className="text-slate-400 hover:text-yellow-600 transition-colors p-2 rounded-full hover:bg-slate-100 active:scale-95 transform"
                   title="Cài đặt API Key"
                 >
                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
@@ -296,7 +316,7 @@ function App() {
                 {/* About Button */}
                 <button 
                   onClick={() => setShowAbout(true)}
-                  className="text-slate-400 hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100"
+                  className="text-slate-400 hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100 active:scale-95 transform"
                   title="Thông tin ứng dụng"
                 >
                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -307,57 +327,81 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
         
         {/* Status Bar - Only show when generating */}
         {isGenerating && statusMsg && (
-          <div className="bg-blue-50 border border-blue-100 text-blue-700 px-4 py-3 rounded-lg flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="bg-white border border-blue-100 text-blue-700 px-4 py-3 rounded-xl flex items-center justify-between shadow-lg shadow-blue-500/10 animate-fade-in ring-1 ring-blue-50">
              <div className="flex items-center gap-3">
-               <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-               <span className="font-medium">{statusMsg}</span>
+               <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+               </span>
+               <span className="font-semibold text-sm">{statusMsg}</span>
              </div>
-             <span className="text-xs bg-white px-2 py-1 rounded text-blue-500 border border-blue-100 font-bold">Safe Mode</span>
+             <div className="flex items-center gap-2">
+                 <span className="text-xs text-slate-400 font-medium hidden sm:inline">Tránh lỗi 429</span>
+                 <span className="text-xs bg-blue-50 px-2 py-1 rounded text-blue-600 border border-blue-200 font-bold uppercase tracking-wider">Safe Mode</span>
+             </div>
           </div>
         )}
 
         {/* Input Section */}
         {students.length === 0 && (
-          <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 transition-all">
-            <div className="flex flex-col gap-4">
+          <section className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 p-8 transition-all animate-fade-in-up">
+            <div className="flex flex-col gap-6">
                   <div className="flex items-center justify-between">
-                     <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                       <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs flex items-center justify-center border border-slate-200">1</span>
-                       Nhập dữ liệu
+                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                       <span className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 text-sm font-bold flex items-center justify-center border border-blue-100">1</span>
+                       Nhập dữ liệu học sinh
                      </h2>
                   </div>
 
-                  {/* File Upload Button */}
-                  <div className="relative group">
+                  {/* File Upload Button with Drag & Drop */}
+                  <div 
+                    className="relative group"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
                      <label className={`
-                       flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer transition-all relative overflow-hidden
-                       ${isExtracting ? 'border-blue-300 bg-blue-50' : 'border-slate-300 hover:border-primary hover:bg-slate-50'}
+                       flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-300 relative overflow-hidden
+                       ${isExtracting 
+                          ? 'border-blue-300 bg-blue-50/50' 
+                          : isDragging 
+                              ? 'border-blue-500 bg-blue-50 scale-[1.02] shadow-xl shadow-blue-500/10' 
+                              : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50/80 hover:shadow-md'
+                       }
                      `}>
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6 z-10">
                             {isExtracting ? (
-                               <div className="flex flex-col items-center gap-2">
-                                  <svg className="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                  <p className="text-sm text-primary font-medium">Đang phân tích hình ảnh bằng AI...</p>
-                                  <p className="text-xs text-slate-500 font-normal">Quá trình này có thể mất vài giây</p>
+                               <div className="flex flex-col items-center gap-4">
+                                  <div className="relative">
+                                      <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                                      <div className="absolute inset-0 flex items-center justify-center text-xl">🧠</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-lg text-slate-800 font-bold">AI đang phân tích...</p>
+                                    <p className="text-sm text-slate-500">Đang trích xuất bảng điểm từ hình ảnh</p>
+                                  </div>
                                 </div>
                             ) : (
                                <>
-                                <div className="flex items-center gap-3 mb-3">
-                                  <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                  <svg className="w-12 h-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                                  <svg className="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                <div className={`flex items-center gap-4 mb-4 transition-transform duration-300 ${isDragging ? 'scale-110' : 'group-hover:scale-105'}`}>
+                                  <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center text-3xl shadow-sm border border-green-100">📊</div>
+                                  <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-3xl shadow-sm border border-red-100">📄</div>
+                                  <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl shadow-sm border border-blue-100">🖼️</div>
                                 </div>
-                                <div className="text-center px-4">
-                                  <p className="mb-2 text-base text-slate-700 font-semibold">
-                                    Click để chọn file (Excel, PDF, Ảnh)
+                                <div className="text-center px-4 space-y-2">
+                                  <p className="text-lg text-slate-700 font-bold">
+                                    {isDragging ? 'Thả file vào đây!' : 'Kéo thả file hoặc Click để chọn'}
                                   </p>
-                                  <p className="text-sm text-slate-500">
-                                    Hoặc nhấn <strong>Ctrl+V</strong> để dán ảnh chụp màn hình
+                                  <p className="text-sm text-slate-500 font-medium">
+                                    Hỗ trợ Excel, PDF, hoặc Ảnh chụp bảng điểm
                                   </p>
+                                  <div className="pt-2">
+                                     <span className="inline-block px-3 py-1 bg-slate-100 text-slate-500 text-xs rounded-full font-mono">Ctrl + V để dán ảnh</span>
+                                  </div>
                                 </div>
                                </>
                             )}
@@ -375,9 +419,11 @@ function App() {
             </div>
             
             {errorMsg && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg flex items-center gap-3">
-                <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                {errorMsg}
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl flex items-center gap-3 animate-fade-in shadow-sm">
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center shrink-0 text-red-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                </div>
+                <span className="font-medium">{errorMsg}</span>
               </div>
             )}
           </section>
@@ -401,13 +447,13 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <footer className="bg-white border-t border-slate-200 py-6 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center gap-2">
+          <p className="text-sm font-semibold text-slate-600">
+            Trợ lý Nhận xét Học bạ
+          </p>
           <p className="text-xs text-slate-400">
-            Trợ lý Nhận xét Học bạ | © 2026 – Nguyễn Chí Dũng
-            <br className="sm:hidden" />
-            <span className="hidden sm:inline mx-1">|</span>
-            THCS Đoàn Bảo Đức | GDPT 2018 & TT22
+             © 2026 – Nguyễn Chí Dũng | THCS Đoàn Bảo Đức | GDPT 2018 & TT22
           </p>
         </div>
       </footer>
@@ -417,19 +463,19 @@ function App() {
 
       {/* About Modal */}
       {showAbout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
-           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
+           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative overflow-hidden transform transition-all scale-100">
               
               {/* Decorative Header Background */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-blue-400"></div>
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
 
-              <div className="flex justify-between items-start mb-4">
+              <div className="flex justify-between items-start mb-6">
                  <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <span className="text-2xl">ℹ️</span> Giới thiệu
+                    <span className="text-2xl">✨</span> Giới thiệu
                  </h3>
                  <button 
                    onClick={() => setShowAbout(false)}
-                   className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+                   className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full p-1 transition-all"
                  >
                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                  </button>
@@ -438,43 +484,43 @@ function App() {
               <div className="space-y-4 text-slate-600 text-sm leading-relaxed">
                  <p className="font-medium text-slate-700">
                    Ứng dụng được xây dựng nhằm hỗ trợ giáo viên THCS trong việc viết nhận xét học bạ theo 
-                   <span className="text-primary font-semibold"> Thông tư 22/2021/TT-BGDĐT</span> và 
-                   <span className="text-primary font-semibold"> Chương trình GDPT 2018</span>.
+                   <span className="text-blue-600 font-bold"> Thông tư 22/2021/TT-BGDĐT</span> và 
+                   <span className="text-blue-600 font-bold"> Chương trình GDPT 2018</span>.
                  </p>
 
                  <p>
-                   Ứng dụng phi lợi nhuận, được xây dựng từ nhu cầu thực tế của giáo viên.
+                   Ứng dụng phi lợi nhuận, tập trung vào trải nghiệm người dùng tối giản và hiệu quả.
                  </p>
 
-                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-                    <div className="flex items-start gap-2">
-                       <span className="text-slate-400 mt-0.5">👤</span>
+                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                    <div className="flex items-center gap-3">
+                       <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm text-lg">👨‍💻</div>
                        <div>
-                          <strong className="block text-slate-800">Tác giả:</strong>
+                          <strong className="block text-slate-800 text-xs uppercase tracking-wide">Tác giả</strong>
                           <a 
                             href="https://www.facebook.com/ncdung2013" 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-slate-700 hover:text-primary hover:underline transition-colors"
+                            className="text-blue-600 font-semibold hover:underline transition-colors"
                           >
                             Nguyễn Chí Dũng
                           </a>
                        </div>
                     </div>
-                    <div className="flex items-start gap-2">
-                       <span className="text-slate-400 mt-0.5">🏫</span>
+                    <div className="flex items-center gap-3">
+                       <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm text-lg">🏫</div>
                        <div>
-                          <strong className="block text-slate-800">Đơn vị:</strong>
-                          <span>THCS Đoàn Bảo Đức – Long Kiến – An Giang</span>
+                          <strong className="block text-slate-800 text-xs uppercase tracking-wide">Đơn vị</strong>
+                          <span className="text-slate-700 font-medium">THCS Đoàn Bảo Đức – An Giang</span>
                        </div>
                     </div>
                  </div>
               </div>
 
-              <div className="mt-6 text-center">
+              <div className="mt-8 text-center">
                  <button 
                    onClick={() => setShowAbout(false)}
-                   className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors"
+                   className="w-full px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-lg shadow-slate-900/20 active:scale-95"
                  >
                    Đóng
                  </button>
