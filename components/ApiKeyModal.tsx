@@ -46,7 +46,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, onClear, hasKey = fal
           if (msg.includes('404') || msg.includes('not found')) {
              setStatusMsg("Model AI không tìm thấy (404). Có thể Key chưa kích hoạt đầy đủ.");
           } else if (msg.includes('429')) {
-             setStatusMsg("Server đang bận (429). Hãy thử lại sau 1 phút.");
+             setStatusMsg("Server đang bận (429). Hãy thử lại sau 1-2 phút.");
           } else if (msg.includes('400') || msg.includes('INVALID_ARGUMENT') || msg.includes('API_KEY_INVALID')) {
              setStatusMsg("Key không hợp lệ. Vui lòng kiểm tra lại từng ký tự.");
           } else if (msg.includes('403')) {
@@ -115,7 +115,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, onClear, hasKey = fal
               {isChecking ? (
                   <>
                     <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    <span>Đang kiểm tra Key...</span>
+                    <span>Đang tìm server tốt nhất...</span>
                   </>
               ) : (
                   <>

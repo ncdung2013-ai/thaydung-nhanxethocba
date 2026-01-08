@@ -23,27 +23,60 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-// SỬ DỤNG GEMINI 2.0 FLASH
-// Model này mạnh mẽ và hiện đại nhất.
-// Lỗi Quota trước đây đã được xử lý bằng cách giảm tốc độ gửi ở App.tsx
-const MODEL_NAME = "gemini-2.0-flash";
+// DANH SÁCH MODEL SẼ THỬ LẦN LƯỢT
+// Ưu tiên 2.0 Flash (mạnh nhất), nếu lỗi thì qua Flash Lite (nhẹ, ít lag hơn), cuối cùng là alias latest.
+const CANDIDATE_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite-preview-02-05", 
+  "gemini-flash-latest"
+];
+
+// Hàm lấy model đang hoạt động (đã lưu từ lần test trước) hoặc mặc định
+const getActiveModel = (): string => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('GEMINI_ACTIVE_MODEL');
+    if (stored) return stored;
+  }
+  return CANDIDATE_MODELS[0];
+};
 
 /**
- * Test API Connection
+ * Test API Connection & Auto-select Best Model
  */
 export const testApiConnection = async (apiKey: string): Promise<boolean> => {
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    // Gọi một lệnh siêu nhẹ để test mạng và key
-    await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: "Hello",
-    });
-    return true;
-  } catch (e) {
-    console.error("Test connection failed:", e);
-    throw e;
+  const ai = new GoogleGenAI({ apiKey });
+  let lastError: any = null;
+
+  // Thử lần lượt từng model
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      console.log(`Testing connection with model: ${model}...`);
+      await ai.models.generateContent({
+        model: model,
+        contents: "Hello",
+      });
+      
+      // Nếu thành công, lưu lại model này để dùng cho app
+      if (typeof window !== 'undefined') {
+         localStorage.setItem('GEMINI_ACTIVE_MODEL', model);
+      }
+      return true; // Kết nối thành công
+
+    } catch (e: any) {
+      console.warn(`Model ${model} failed:`, e.message);
+      lastError = e;
+      
+      const msg = e.message || "";
+      // Nếu lỗi do sai Key (400, 403) thì dừng luôn, không thử model khác làm gì
+      if (msg.includes("400") || msg.includes("INVALID_ARGUMENT") || msg.includes("API_KEY_INVALID") || msg.includes("403")) {
+         throw e;
+      }
+      // Nếu là lỗi 429 (Busy) hoặc 404 (Not Found) thì thử tiếp model sau
+    }
   }
+
+  // Nếu thử hết mà vẫn lỗi thì ném ra lỗi cuối cùng
+  throw lastError;
 };
 
 /**
@@ -79,6 +112,7 @@ export const extractDataFromMedia = async (
 ): Promise<{ students: StudentData[], detectedSubject?: string }> => {
   
   const ai = getAIClient(); 
+  const modelName = getActiveModel();
 
   const prompt = role === TeacherRole.SUBJECT 
     ? `Bạn là trợ lý nhập liệu. Hãy phân tích hình ảnh/PDF bảng điểm này:
@@ -119,7 +153,7 @@ export const extractDataFromMedia = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: MODEL_NAME, 
+      model: modelName, 
       contents: {
         parts: [
           { inlineData: { mimeType, data: base64Data } },
@@ -208,6 +242,7 @@ export const generateCommentsBatch = async (
   if (students.length === 0) return new Map();
 
   const ai = getAIClient();
+  const modelName = getActiveModel();
 
   let logicRules = "";
   let roleInstruction = "";
@@ -283,7 +318,7 @@ export const generateCommentsBatch = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: MODEL_NAME,
+      model: modelName,
       contents: JSON.stringify(studentPayload),
       config: {
         systemInstruction: systemInstruction,
