@@ -44,6 +44,11 @@ function App() {
     setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
   };
 
+  // Helper to delete specific student
+  const deleteStudent = (id: string) => {
+    setStudents(prev => prev.filter(s => s.id !== id));
+  };
+
   /**
    * Generates comments for a specific list of students (or current state if null)
    */
@@ -440,6 +445,7 @@ function App() {
                 onRegenerateSingle={handleRegenerateSingle}
                 onRegenerateAll={() => handleRegenerateAll()}
                 onChangeSubject={(subj) => handleRegenerateAll(subj)}
+                onDeleteStudent={deleteStudent}
                 isGenerating={isGenerating}
               />
            </section>

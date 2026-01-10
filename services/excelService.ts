@@ -8,25 +8,30 @@ import { StudentData, TeacherRole } from '../types';
 const isNamePart = (val: any): boolean => {
   if (typeof val !== 'string') return false;
   const str = val.trim();
-  if (str.length < 2) return false;
+  if (str.length === 0) return false;
   
-  // Names rarely contain numbers (except rare cases, but headers often have years like 2025)
+  // FIX: Names rarely contain numbers.
   if (/\d/.test(str)) return false; 
+
+  // FIX: Allow specific single letter names like "Ý"
+  if (str.length < 2 && str.toUpperCase() !== 'Ý') return false;
 
   // Common header/system keywords to exclude (Expanded based on user feedback)
   const keywords = [
     'stt', 'họ', 'tên', 'thứ', 'ngày', 'tháng', 'năm', 'lớp', 'trường', 
     'dân', 'tộc', 'nữ', 'nam', 'điểm', 'trung', 'bình', 'xếp', 'loại',
-    'ghi', 'chú', 'kết', 'quả', 'học', 'kỳ', 'môn', 'toán', 'lý', 'hóa',
-    'sinh', 'sử', 'địa', 'anh', 'gdcd', 'công', 'nghệ', 'tin', 'thể',
-    'giáo', 'viên', 'người', 'lập', 'biểu', 'thống', 'kê', 'đạt', 'chưa',
-    'tbm', 'đtb', 'hk1', 'hk2', 'cn', 'tốt', 'khá', 'đạt',
-    // New exclusions for administrative headers
+    'ghi', 'chú', 'kết', 'quả', 'học', 'kỳ', 'môn', 
+    // REMOVED 'toán', 'lý', 'hóa', 'sinh', 'sử', 'địa', 'anh', 'văn' because they are common names
+    'gdcd', 'công', 'nghệ', 'tin', 'thể',
+    'giáo', 'viên', 'người', 'lập', 'biểu', 'thống', 'kê',
+    'tbm', 'đtb', 'hk1', 'hk2', 'cn', 'tốt', 'khá',
+    // New exclusions for administrative headers & footers
     'ubnd', 'thcs', 'thpt', 'tiểu', 'phòng', 'sở', 'đào', 'tạo', 'cộng', 'hòa',
     'xã', 'huyện', 'tỉnh', 'thành', 'phố', 'độc', 'lập', 'tự', 'do',
     'đđg', 'tx', 'đgtx', 'đđgc', 'nhận', 'xét', 'khối',
     // Statistical keywords to exclude footer rows
-    'số', 'lượng', 'tỉ', 'lệ', 'tỷ', 'phần', 'trăm', 'tổng'
+    'số', 'lượng', 'tỉ', 'lệ', 'tỷ', 'phần', 'trăm', 'tổng',
+    'sinh', 'đạt', 'chưa' 
   ];
 
   const lower = str.toLowerCase();
@@ -34,12 +39,18 @@ const isNamePart = (val: any): boolean => {
   // Check if string contains any keyword
   if (['stt', 'đđgtx', 'đđgck', 'đtbmhk'].some(k => lower === k)) return false;
   if (lower.includes('số lượng') || lower.includes('tỉ lệ') || lower.includes('tỷ lệ') || lower.includes('thống kê')) return false;
+  if (lower.includes('số học sinh') || lower === 'đạt' || lower === 'chưa đạt') return false;
 
   // Check common headers
-  if (keywords.some(k => lower === k)) return false; // Strict equality for short words
-  if (['trường', 'phòng', 'ủy', 'ban', 'cộng', 'hòa'].some(k => lower.includes(k))) return false;
+  // STRICT CHECK: Only filter if it MATCHES exactly a keyword in the list
+  if (keywords.some(k => lower === k)) return false; 
+  
+  // FIX: Removed 'hòa' from includes check to prevent deleting "Lê Hòa"
+  // Use 'cộng hòa' instead for header detection
+  if (['trường', 'phòng', 'ủy', 'ban', 'cộng hòa'].some(k => lower.includes(k))) return false;
   
   // Check for ALL CAPS short strings that look like ratings or abbreviations (T, K, Đ, CĐ, TX1...)
+  // Note: "Ý" is handled above, so it won't be blocked here if logic is correct
   if (/^(T|K|TB|Y|G|Đ|CĐ|TX\d|HK\d)$/.test(str.toUpperCase())) return false;
 
   return true;
@@ -61,7 +72,8 @@ export const parseStringData = (text: string, role: TeacherRole): StudentData[] 
     if (lower.includes('họ và tên') || lower.startsWith('stt') || 
         lower.includes('người lập') || lower.includes('ngày') || 
         lower.includes('thcs') || lower.includes('ubnd') ||
-        lower.includes('số lượng') || lower.includes('tỉ lệ')) return;
+        lower.includes('số lượng') || lower.includes('tỉ lệ') ||
+        lower.includes('số học sinh')) return;
 
     let parts = trimmed.split('\t');
     
@@ -213,7 +225,10 @@ export const parseExcelData = (fileData: ArrayBuffer | string, role: TeacherRole
       const fullName = nameParts.join(' ').trim();
       
       // --- FILTERING ---
-      if (!fullName || fullName.length < 2) return;
+      if (!fullName || fullName.length < 2) {
+          // Double check if it's "Ý" (length 1)
+          if (fullName !== 'Ý') return;
+      }
 
       const upperName = fullName.toUpperCase();
       
@@ -228,7 +243,10 @@ export const parseExcelData = (fileData: ArrayBuffer | string, role: TeacherRole
           upperName.includes("TỈ LỆ") || 
           upperName.includes("TỶ LỆ") ||
           upperName.includes("TỔNG CỘNG") ||
-          upperName.includes("THỐNG KÊ")) {
+          upperName.includes("THỐNG KÊ") ||
+          upperName.startsWith("SỐ HỌC SINH") || 
+          upperName === "ĐẠT" || 
+          upperName === "CHƯA ĐẠT") {
           return;
       }
       
@@ -282,8 +300,6 @@ export const parseExcelData = (fileData: ArrayBuffer | string, role: TeacherRole
               }
               
               // Detect Absences (Small Integer)
-              // We assume Absences is usually the last integer found or appears after name.
-              // Note: Avoid confusing with year "2025" or high numbers.
               if (/^\d+$/.test(str)) {
                  const n = parseInt(str, 10);
                  if (n >= 0 && n < 60) {
@@ -292,8 +308,6 @@ export const parseExcelData = (fileData: ArrayBuffer | string, role: TeacherRole
               }
           }
 
-          // Heuristic Mapping: 
-          // Usually columns are: ... | Học Lực | Hạnh Kiểm | ...
           if (ratingsFound.length >= 2) {
               academicResult = ratingsFound[0];
               conductRating = ratingsFound[1];
