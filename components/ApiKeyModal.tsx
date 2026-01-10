@@ -96,6 +96,11 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, onClear, hasKey = fal
               type="password" 
               value={inputKey}
               onChange={(e) => { setInputKey(e.target.value); setStatus('none'); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleCheckAndSave();
+                }
+              }}
               placeholder="AIzaSy..."
               className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all font-mono text-sm"
             />
@@ -105,6 +110,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, onClear, hasKey = fal
           
           <div className="flex flex-col gap-3">
             <button 
+              type="button"
               onClick={handleCheckAndSave}
               disabled={!inputKey || isChecking}
               className={`w-full py-3 text-white font-bold rounded-lg transition-all shadow-lg flex items-center justify-center gap-2
@@ -127,6 +133,7 @@ const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onSave, onClear, hasKey = fal
             
             {hasKey && onClear && (
                <button 
+                  type="button"
                   onClick={() => { setInputKey(""); onClear(); }}
                   className="w-full py-2 text-red-600 font-semibold hover:bg-red-50 rounded-lg text-sm border border-transparent hover:border-red-100 transition-colors"
                >

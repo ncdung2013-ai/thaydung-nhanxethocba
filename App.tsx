@@ -295,12 +295,14 @@ function App() {
           <div className="flex items-center gap-4">
             <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
               <button
+                type="button"
                 onClick={() => { setRole(TeacherRole.SUBJECT); setStudents([]); }}
                 className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 ${role === TeacherRole.SUBJECT ? 'bg-white text-blue-700 shadow-sm ring-1 ring-black/5 scale-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 scale-95'}`}
               >
                 GV Bộ môn
               </button>
               <button
+                type="button"
                 onClick={() => { setRole(TeacherRole.HOMEROOM); setStudents([]); }}
                 className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 ${role === TeacherRole.HOMEROOM ? 'bg-white text-blue-700 shadow-sm ring-1 ring-black/5 scale-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 scale-95'}`}
               >
@@ -311,6 +313,7 @@ function App() {
             <div className="flex items-center border-l border-slate-300 pl-4 gap-2">
                 {/* Settings Key Button */}
                 <button
+                  type="button"
                   onClick={() => setShowKeyModal(true)}
                   className="text-slate-400 hover:text-yellow-600 transition-colors p-2 rounded-full hover:bg-slate-100 active:scale-95 transform"
                   title="Cài đặt API Key"
@@ -320,6 +323,7 @@ function App() {
 
                 {/* About Button */}
                 <button 
+                  type="button"
                   onClick={() => setShowAbout(true)}
                   className="text-slate-400 hover:text-primary transition-colors p-2 rounded-full hover:bg-slate-100 active:scale-95 transform"
                   title="Thông tin ứng dụng"
@@ -480,6 +484,7 @@ function App() {
                     <span className="text-2xl">✨</span> Giới thiệu
                  </h3>
                  <button 
+                   type="button"
                    onClick={() => setShowAbout(false)}
                    className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full p-1 transition-all"
                  >
@@ -525,6 +530,7 @@ function App() {
 
               <div className="mt-8 text-center">
                  <button 
+                   type="button"
                    onClick={() => setShowAbout(false)}
                    className="w-full px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-lg shadow-slate-900/20 active:scale-95"
                  >
