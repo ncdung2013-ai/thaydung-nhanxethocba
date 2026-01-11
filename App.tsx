@@ -63,15 +63,15 @@ function App() {
     setStudents(prev => prev.map(s => ({ ...s, isProcessing: true })));
 
     try {
-      // QUAN TRỌNG: Google Free Tier giới hạn 15 requests/phút.
-      // Tức là tối thiểu 4 giây mới được gửi 1 lần (60s / 15 = 4s).
-      // Để an toàn, ta chia nhỏ chunk và delay 4.2 giây.
+      // TỐI ƯU TỐC ĐỘ:
+      // Google Free Tier: 15 requests/phút.
+      // Chunk 5 em -> Lớp 45 em mất 9 requests -> Vẫn an toàn và nhanh hơn.
       const chunkSize = 5; 
       
       for (let i = 0; i < targetStudents.length; i += chunkSize) {
         const chunk = targetStudents.slice(i, i + chunkSize);
         
-        // Cập nhật trạng thái cho người dùng đỡ sốt ruột
+        // Cập nhật trạng thái
         const progress = Math.min(100, Math.round(((i) / targetStudents.length) * 100));
         setStatusMsg(`Đang xử lý nhóm học sinh ${i + 1} - ${Math.min(i + chunkSize, targetStudents.length)} (${progress}%)...`);
 
@@ -89,11 +89,8 @@ function App() {
           return s;
         }));
 
-        // DELAY 4.2 GIÂY ĐỂ TRÁNH LỖI 429 (Rate Limit của Google)
-        if (i + chunkSize < targetStudents.length) {
-            setStatusMsg(`⏳ Đang đợi Google (4s) để tránh quá tải...`);
-            await new Promise(resolve => setTimeout(resolve, 4200));
-        }
+        // Đã bỏ delay 5s để chạy nhanh liên tục.
+        // Nếu gặp lỗi rate limit, service sẽ tự động retry (đã xử lý ở geminiService).
       }
       setStatusMsg("");
     } catch (err: any) {
@@ -349,8 +346,7 @@ function App() {
                <span className="font-semibold text-sm">{statusMsg}</span>
              </div>
              <div className="flex items-center gap-2">
-                 <span className="text-xs text-slate-400 font-medium hidden sm:inline">Tránh lỗi 429</span>
-                 <span className="text-xs bg-blue-50 px-2 py-1 rounded text-blue-600 border border-blue-200 font-bold uppercase tracking-wider">Safe Mode</span>
+                 <span className="text-xs bg-blue-50 px-2 py-1 rounded text-blue-600 border border-blue-200 font-bold uppercase tracking-wider">Fast Mode</span>
              </div>
           </div>
         )}

@@ -24,10 +24,11 @@ const getAIClient = () => {
 };
 
 // DANH SÁCH MODEL SẼ THỬ LẦN LƯỢT
-// Ưu tiên 2.0 Flash (mạnh nhất), nếu lỗi thì qua Flash Lite (nhẹ, ít lag hơn), cuối cùng là alias latest.
+// Cập nhật ưu tiên các model ổn định và mới nhất
 const CANDIDATE_MODELS = [
   "gemini-2.0-flash",
   "gemini-2.0-flash-lite-preview-02-05", 
+  "gemini-1.5-flash", // Fallback ổn định
   "gemini-flash-latest"
 ];
 
@@ -38,6 +39,35 @@ const getActiveModel = (): string => {
     if (stored) return stored;
   }
   return CANDIDATE_MODELS[0];
+};
+
+/**
+ * Hàm wrapper để tự động thử lại khi gặp lỗi "Busy" (429, 503)
+ */
+const callWithRetry = async <T>(
+  fn: () => Promise<T>, 
+  retries: number = 3, 
+  baseDelay: number = 2000
+): Promise<T> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const msg = error.message || "";
+      const isTransient = msg.includes("429") || msg.includes("503") || msg.includes("overloaded") || msg.includes("quota");
+      
+      // Nếu không phải lỗi tạm thời hoặc đã hết lượt thử -> ném lỗi
+      if (!isTransient || i === retries - 1) {
+        throw error;
+      }
+
+      // Thời gian chờ tăng dần: 2s -> 4s -> 6s
+      const waitTime = baseDelay * (i + 1);
+      console.warn(`Google Busy (Attempt ${i + 1}/${retries}). Retrying in ${waitTime}ms...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+  throw new Error("Retry failed"); // Should not reach here
 };
 
 /**
@@ -151,58 +181,58 @@ export const extractDataFromMedia = async (
     required: ["students"]
   };
 
-  try {
-    const response = await ai.models.generateContent({
-      model: modelName, 
-      contents: {
-        parts: [
-          { inlineData: { mimeType, data: base64Data } },
-          { text: prompt }
-        ]
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-      }
-    });
-
-    const resultText = response.text;
-    if (!resultText) return { students: [] };
-
-    let rawData;
+  return callWithRetry(async () => {
     try {
-      rawData = JSON.parse(resultText);
-    } catch (e) {
-      const clean = resultText.replace(/```json/g, '').replace(/```/g, '');
-      rawData = JSON.parse(clean);
+      const response = await ai.models.generateContent({
+        model: modelName, 
+        contents: {
+          parts: [
+            { inlineData: { mimeType, data: base64Data } },
+            { text: prompt }
+          ]
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: responseSchema,
+        }
+      });
+
+      const resultText = response.text;
+      if (!resultText) return { students: [] };
+
+      let rawData;
+      try {
+        rawData = JSON.parse(resultText);
+      } catch (e) {
+        const clean = resultText.replace(/```json/g, '').replace(/```/g, '');
+        rawData = JSON.parse(clean);
+      }
+      
+      const studentsList = rawData.students || (Array.isArray(rawData) ? rawData : []);
+      const rawSubject = rawData.subjectName;
+
+      const students = studentsList.map((item: any, idx: number) => ({
+        id: `student-img-${Date.now()}-${idx}`,
+        name: item.name || `Học sinh ${idx + 1}`,
+        subjectScore: item.score,
+        subjectRating: item.rating,
+        academicResult: item.kqht,
+        conductRating: item.kqrl,
+        absences: item.absences,
+        comment: '',
+        isProcessing: false
+      }));
+
+      return { 
+        students, 
+        detectedSubject: normalizeSubjectName(rawSubject) 
+      };
+
+    } catch (error: any) {
+      if (error.message === "MISSING_API_KEY") throw error;
+      throw error; // Let retry handler catch it
     }
-    
-    // Check structure (Object with students array)
-    const studentsList = rawData.students || (Array.isArray(rawData) ? rawData : []);
-    const rawSubject = rawData.subjectName;
-
-    const students = studentsList.map((item: any, idx: number) => ({
-      id: `student-img-${Date.now()}-${idx}`,
-      name: item.name || `Học sinh ${idx + 1}`,
-      subjectScore: item.score,
-      subjectRating: item.rating,
-      academicResult: item.kqht,
-      conductRating: item.kqrl,
-      absences: item.absences,
-      comment: '',
-      isProcessing: false
-    }));
-
-    return { 
-      students, 
-      detectedSubject: normalizeSubjectName(rawSubject) 
-    };
-
-  } catch (error: any) {
-    if (error.message === "MISSING_API_KEY") throw error;
-    console.error("Error extracting data from media:", error);
-    throw new Error(error.message || "Không thể xử lý file. Hãy đảm bảo ảnh/PDF rõ nét và chứa bảng điểm.");
-  }
+  });
 };
 
 /**
@@ -316,41 +346,42 @@ export const generateCommentsBatch = async (
     }
   });
 
-  try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: JSON.stringify(studentPayload),
-      config: {
-        systemInstruction: systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: outputSchema,
-      },
-    });
-
-    const resultText = response.text;
-    if (!resultText) throw new Error("No response from AI");
-
-    let parsedResults;
+  return callWithRetry(async () => {
     try {
-        parsedResults = JSON.parse(resultText);
-    } catch {
-        return new Map();
-    }
-    
-    const commentMap = new Map<string, string>();
-    if (Array.isArray(parsedResults)) {
-        parsedResults.forEach((item: any) => {
-          if (item && item.id && item.comment) {
-             commentMap.set(item.id, item.comment);
-          }
-        });
-    }
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: JSON.stringify(studentPayload),
+        config: {
+          systemInstruction: systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: outputSchema,
+        },
+      });
 
-    return commentMap;
+      const resultText = response.text;
+      if (!resultText) throw new Error("No response from AI");
 
-  } catch (error: any) {
-    if (error.message === "MISSING_API_KEY") throw error;
-    console.error("Error generating comments:", error);
-    throw error;
-  }
+      let parsedResults;
+      try {
+          parsedResults = JSON.parse(resultText);
+      } catch {
+          return new Map();
+      }
+      
+      const commentMap = new Map<string, string>();
+      if (Array.isArray(parsedResults)) {
+          parsedResults.forEach((item: any) => {
+            if (item && item.id && item.comment) {
+              commentMap.set(item.id, item.comment);
+            }
+          });
+      }
+
+      return commentMap;
+
+    } catch (error: any) {
+      if (error.message === "MISSING_API_KEY") throw error;
+      throw error; // Let retry handler catch it
+    }
+  });
 };
